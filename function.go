@@ -22,8 +22,6 @@ type MercuryResponse struct {
 	Output map[string]string
 }
 
-var input = ""
-
 func init() {
 	functions.HTTP("GoMercury", goMercury)
 }
@@ -32,27 +30,33 @@ func goMercury(w http.ResponseWriter, r *http.Request) {
 	var d MercuryRequest
 	var m MercuryResponse
 	m.Output = make(map[string]string)
+	var input = ""
 
 	//Capture byte array input.
 	var byteArray, err = io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Fprintln(w, err)
+		fmt.Fprintln(w, html.EscapeString(err.Error()))
 		return
 	}
 
 	//Convert byte array to string.
 	input = string(byteArray)
 
-	//Check if input is an IP address.
-	if net.ParseIP(input) != nil {
+	switch {
+	//If input is valid IP, use GeoIP.
+	case net.ParseIP(input) != nil:
 		d.IpAddress = input
-		whoIs(d.IpAddress, &m)
-	}
-
-	//Check if input is a domain.
-	if validator.IsValidDomain(input) {
+		geoIp(d.IpAddress, &m)
+		break
+	//If input is valid Domain, use WhoIs.
+	case validator.ValidateDomainByResolvingIt(input) == nil:
 		d.Domain = input
-		geoIp(d.Domain, &m)
+		whoIs(d.Domain, &m)
+		break
+	//Return error to user
+	default:
+		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name."))
+		return
 	}
 
 	for k, v := range m.Output {
@@ -78,14 +82,14 @@ func whoIs(domain string, m *MercuryResponse) {
 }
 
 func geoIp(ipAddress string, m *MercuryResponse) {
-	db, err := geoip2.Open("GeoIP2-City.mmdb")
+	db, err := geoip2.Open("GeoLite2-City.mmdb")
 	if err != nil {
 		m.Output["GeoIpErrorOnOpen"] = err.Error()
 		return
 	}
 	defer db.Close()
 
-	record, err := db.City(net.IP(ipAddress))
+	record, err := db.City(net.ParseIP(ipAddress))
 	if err != nil {
 		m.Output["GeoIpErrorForRecord"] = err.Error()
 		return
