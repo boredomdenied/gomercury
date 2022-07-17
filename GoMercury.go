@@ -23,10 +23,10 @@ type MercuryResponse struct {
 }
 
 func init() {
-	functions.HTTP("GoMercury", goMercury)
+	functions.HTTP("GoMercury", GoMercury)
 }
 
-func goMercury(w http.ResponseWriter, r *http.Request) {
+func GoMercury(w http.ResponseWriter, r *http.Request) {
 	var d MercuryRequest
 	var m MercuryResponse
 	m.Output = make(map[string]string)
