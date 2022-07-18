@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
@@ -24,8 +25,25 @@ type MercuryResponse struct {
 	Output map[string]string
 }
 
+var (
+	fileByteArray []byte
+	calcTotalOnce sync.Once
+)
+
 func init() {
 	functions.HTTP("GoMercury", GoMercury)
+}
+
+func OnceBody() []byte {
+	calcTotalOnce.Do(func() {
+		ctx := context.Background()
+		client, _ := storage.NewClient(ctx)
+		rc, _ := client.Bucket("gomercury-bucket356415").Object("GeoLite2-City.mmdb").NewReader(ctx)
+
+		defer rc.Close()
+		fileByteArray, _ = io.ReadAll(rc)
+	})
+	return fileByteArray
 }
 
 func GoMercury(w http.ResponseWriter, r *http.Request) {
@@ -34,18 +52,13 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 
 	m.Output = make(map[string]string)
 
+	fileByteArray := OnceBody()
 	//Capture byte array inputs.
 	var byteArray, err = io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Fprintln(w, html.EscapeString(err.Error()))
 		return
 	}
-	ctx := context.Background()
-	client, _ := storage.NewClient(ctx)
-	rc, _ := client.Bucket("gomercury-bucket356415").Object("GeoLite2-City.mmdb").NewReader(ctx)
-
-	defer rc.Close()
-	fileByteArray, _ := io.ReadAll(rc)
 
 	//Convert byte arrays to strings.
 	var input = string(byteArray)
