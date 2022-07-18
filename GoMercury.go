@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -26,24 +27,35 @@ type MercuryResponse struct {
 }
 
 var (
-	fileByteArray []byte
-	calcTotalOnce sync.Once
+	geoIPData     []byte
+	loadGeoIpOnce sync.Once
 )
 
 func init() {
 	functions.HTTP("GoMercury", GoMercury)
 }
 
-func OnceBody() []byte {
-	calcTotalOnce.Do(func() {
+func onceBody() []byte {
+	loadGeoIpOnce.Do(func() {
 		ctx := context.Background()
-		client, _ := storage.NewClient(ctx)
-		rc, _ := client.Bucket("gomercury-bucket356415").Object("GeoLite2-City.mmdb").NewReader(ctx)
-
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			log.Fatalf("Error opening storage.NewClient: %s.", err)
+			return
+		}
+		rc, err := client.Bucket("gomercury-bucket356415").Object("GeoLite2-City.mmdb").NewReader(ctx)
+		if err != nil {
+			log.Fatalf("Error opening storage bucket: %s.", err)
+			return
+		}
 		defer rc.Close()
-		fileByteArray, _ = io.ReadAll(rc)
+		geoIPData, err = io.ReadAll(rc)
+		if err != nil {
+			log.Fatalf("Error with reading geoIPData: %s.", err)
+			return
+		}
 	})
-	return fileByteArray
+	return geoIPData
 }
 
 func GoMercury(w http.ResponseWriter, r *http.Request) {
@@ -52,28 +64,26 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 
 	m.Output = make(map[string]string)
 
-	fileByteArray := OnceBody()
+	geoIPData := onceBody()
 	//Capture byte array inputs.
-	var byteArray, err = io.ReadAll(r.Body)
+	var inputBytes, err = io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Fprintln(w, html.EscapeString(err.Error()))
 		return
 	}
 
 	//Convert byte arrays to strings.
-	var input = string(byteArray)
+	var input = string(inputBytes)
 
 	switch {
 	//If input is valid IP, use GeoIP.
 	case net.ParseIP(input) != nil:
 		d.IpAddress = input
-		geoIp(d.IpAddress, &m, fileByteArray)
-		break
+		geoIp(d.IpAddress, &m, geoIPData)
 	//If input is valid Domain, use WhoIs.
 	case validator.ValidateDomainByResolvingIt(input) == nil:
 		d.Domain = input
 		whoIs(d.Domain, &m)
-		break
 	//Return error to user.
 	default:
 		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name."))
@@ -102,8 +112,8 @@ func whoIs(domain string, m *MercuryResponse) {
 	m.Output["WhoisSuccessfulResponse"] = string(response.Body)
 }
 
-func geoIp(ipAddress string, m *MercuryResponse, fileByteArray []byte) {
-	db, err := geoip2.FromBytes(fileByteArray)
+func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte) {
+	db, err := geoip2.FromBytes(geoIPData)
 	if err != nil {
 		m.Output["GeoIpErrorOnOpen"] = err.Error()
 		return
