@@ -1,12 +1,14 @@
 package function
 
 import (
+	"context"
 	"fmt"
 	"html"
 	"io"
 	"net"
 	"net/http"
 
+	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/dchest/validator"
 	"github.com/domainr/whois"
@@ -32,21 +34,27 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 
 	m.Output = make(map[string]string)
 
-	//Capture byte array input.
+	//Capture byte array inputs.
 	var byteArray, err = io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Fprintln(w, html.EscapeString(err.Error()))
 		return
 	}
+	ctx := context.Background()
+	client, _ := storage.NewClient(ctx)
+	rc, _ := client.Bucket("gomercury-bucket356415").Object("GeoLite2-City.mmdb").NewReader(ctx)
 
-	//Convert byte array to string.
+	defer rc.Close()
+	fileByteArray, _ := io.ReadAll(rc)
+
+	//Convert byte arrays to strings.
 	var input = string(byteArray)
 
 	switch {
 	//If input is valid IP, use GeoIP.
 	case net.ParseIP(input) != nil:
 		d.IpAddress = input
-		geoIp(d.IpAddress, &m)
+		geoIp(d.IpAddress, &m, fileByteArray)
 		break
 	//If input is valid Domain, use WhoIs.
 	case validator.ValidateDomainByResolvingIt(input) == nil:
@@ -81,8 +89,8 @@ func whoIs(domain string, m *MercuryResponse) {
 	m.Output["WhoisSuccessfulResponse"] = string(response.Body)
 }
 
-func geoIp(ipAddress string, m *MercuryResponse) {
-	db, err := geoip2.Open("GeoLite2-City.mmdb")
+func geoIp(ipAddress string, m *MercuryResponse, fileByteArray []byte) {
+	db, err := geoip2.FromBytes(fileByteArray)
 	if err != nil {
 		m.Output["GeoIpErrorOnOpen"] = err.Error()
 		return
