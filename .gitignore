@@ -17,3 +17,6 @@
 # GeoLite2 Database and Archive
 *.mmdb
 *.zip
+
+#Terraform folder and files
+terraform/
