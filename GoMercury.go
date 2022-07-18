@@ -29,8 +29,8 @@ func init() {
 func GoMercury(w http.ResponseWriter, r *http.Request) {
 	var d MercuryRequest
 	var m MercuryResponse
+
 	m.Output = make(map[string]string)
-	var input = ""
 
 	//Capture byte array input.
 	var byteArray, err = io.ReadAll(r.Body)
@@ -40,7 +40,7 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Convert byte array to string.
-	input = string(byteArray)
+	var input = string(byteArray)
 
 	switch {
 	//If input is valid IP, use GeoIP.
@@ -53,16 +53,16 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 		d.Domain = input
 		whoIs(d.Domain, &m)
 		break
-	//Return error to user
+	//Return error to user.
 	default:
 		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name."))
 		return
 	}
 
+	//Output html of data inside MercuryResponse.
 	for k, v := range m.Output {
 		fmt.Fprintln(w, html.EscapeString(k+" : "+v))
 	}
-
 }
 
 func whoIs(domain string, m *MercuryResponse) {
@@ -94,10 +94,10 @@ func geoIp(ipAddress string, m *MercuryResponse) {
 		m.Output["GeoIpErrorForRecord"] = err.Error()
 		return
 	}
+
 	m.Output["GeoIPCity"] = record.City.Names["en"]
 	m.Output["GeoIPCountry"] = record.Country.Names["en"]
 	m.Output["GeoIPContinent"] = record.Continent.Names["en"]
 	m.Output["GeoIPLocationLatitude"] = fmt.Sprintf("%f", record.Location.Latitude)
 	m.Output["GeoIPLocationLongitude"] = fmt.Sprintf("%f", record.Location.Longitude)
-
 }
