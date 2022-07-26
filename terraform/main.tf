@@ -19,7 +19,7 @@ resource "google_storage_bucket" "bucket" {
 resource "google_storage_bucket_object" "archive" {
   name   = "gomercury.zip"
   bucket = google_storage_bucket.bucket.name
-  source = data.archive_file.gomercury.output_path
+  source = local.zip_file
 }
 
 resource "google_storage_bucket_object" "file" {

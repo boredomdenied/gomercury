@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"log"
 	"net"
@@ -75,14 +74,12 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, html.EscapeString(err.Error()))
-		return
+		m.Output["ErrorOnRequestParameter"] = err.Error()
 	}
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, html.EscapeString("Not a GET request"))
-		return
+		m.Output["ErrorOnMethodType"] = "Not a Valid GET request."
 	}
 
 	var domain = u.Query().Get("domain")
