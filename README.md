@@ -6,11 +6,11 @@ GoMercury lets you pull up whois information from a domain and searches MaxMinds
 ## Usage
 Domain as input
 ```sh
-curl --data "reddit.com" us-central1-gomercury-356415.cloudfunctions.net/GoMercury
+curl us-central1-gomercury-356415.cloudfunctions.net/GoMercury/?domain=reddit.com
 ```
 IP address as input
 ```sh
-curl --data "212.2.69.135" us-central1-gomercury-356415.cloudfunctions.net/GoMercury
+curl us-central1-gomercury-356415.cloudfunctions.net/GoMercury/?ipaddress=8.8.8.8
 ```
 ## Limitations
 No subdomains in query
