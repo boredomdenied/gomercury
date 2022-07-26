@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"cloud.google.com/go/storage"
@@ -74,6 +75,7 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintln(w, html.EscapeString("Not a GET request"))
 		return
 	}
@@ -87,13 +89,14 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	//If input is valid IP, use GeoIP.
 	case net.ParseIP(IPaddress) != nil:
 		d.IpAddress = IPaddress
-		geoIp(d.IpAddress, &m, geoIPData)
+		geoIp(d.IpAddress, &m, geoIPData, w)
 	//If input is valid Domain, use WhoIs.
 	case validator.ValidateDomainByResolvingIt(domain) == nil:
 		d.Domain = domain
-		whoIs(d.Domain, &m)
+		whoIs(d.Domain, &m, w)
 	default:
-		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name does not resolve."))
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name."))
 		return
 	}
 
@@ -103,25 +106,35 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func whoIs(domain string, m *MercuryResponse) {
+func whoIs(domain string, m *MercuryResponse, w http.ResponseWriter) {
 	request, err := whois.NewRequest(domain)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		m.Output["WhoIsErrorOnRequest"] = err.Error()
 		return
 	}
 
 	response, err := whois.DefaultClient.Fetch(request)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		m.Output["WhoIsErrorOnResponse"] = err.Error()
+		return
+	}
+	var noResolution = strings.Contains(string(response.Body), "No match for")
+
+	if noResolution {
+		w.WriteHeader(http.StatusBadRequest)
+		m.Output["WhoIsErrorOnResolution"] = "Domain resolution unsuccessful."
 		return
 	}
 
 	m.Output["WhoisSuccessfulResponse"] = string(response.Body)
 }
 
-func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte) {
+func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte, w http.ResponseWriter) {
 	db, err := geoip2.FromBytes(geoIPData)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		m.Output["GeoIpErrorOnOpen"] = err.Error()
 		return
 	}
@@ -129,6 +142,7 @@ func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte) {
 
 	record, err := db.City(net.ParseIP(ipAddress))
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		m.Output["GeoIpErrorForRecord"] = err.Error()
 		return
 	}
