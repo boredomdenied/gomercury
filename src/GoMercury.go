@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 
@@ -68,8 +67,8 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 
 	m.Output = make(map[string]string)
 
-	// geoIPData := onceBody()
-	geoIPData, err := os.ReadFile("./GeoLite2-City.mmdb")
+	geoIPData := onceBody()
+	// geoIPData, err := os.ReadFile("./GeoLite2-City.mmdb")
 
 	//Check if we have sane GET request else bail.
 	u, err := url.Parse(r.RequestURI)

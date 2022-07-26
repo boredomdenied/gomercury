@@ -1,34 +1,37 @@
+locals {
+  src_path    = abspath("../src/")
+  db_file     = abspath("../GeoLite2-City.mmdb")
+  zip_file    = abspath("../gomercury.zip")
+}
+
+data "archive_file" "gomercury" {
+  type        = "zip"
+  source_dir  = local.src_path
+  output_path = local.zip_file
+}
+
 resource "google_storage_bucket" "bucket" {
-  project        = "gomercury-356415"
-  name     = "gomercury-bucket356415"
-  location = "US"
+  project     = "gomercury-356415"
+  name        = "gomercury-bucket356415"
+  location    = "US"
 }
 
 resource "google_storage_bucket_object" "archive" {
   name   = "gomercury.zip"
   bucket = google_storage_bucket.bucket.name
-  source = "../gomercury.zip"
+  source = data.archive_file.gomercury.output_path
 }
 
 resource "google_storage_bucket_object" "file" {
   name   = "GeoLite2-City.mmdb"
   bucket = google_storage_bucket.bucket.name
-  source = "../GeoLite2-City.mmdb"
+  source = local.db_file
 }
 
 resource "google_storage_bucket_access_control" "public_rule" {
   bucket = google_storage_bucket.bucket.name
   role   = "READER"
   entity = "allUsers"
-}
-
-# This resource will destroy (potentially immediately) after null_resource.next
-resource "null_resource" "previous" {}
-
-resource "time_sleep" "wait_30_seconds" {
-  depends_on = [null_resource.previous]
-
-  create_duration = "30s"
 }
 
 resource "google_cloudfunctions_function" "function" {
@@ -43,7 +46,6 @@ resource "google_cloudfunctions_function" "function" {
   source_archive_bucket = google_storage_bucket.bucket.name
   source_archive_object = google_storage_bucket_object.archive.name
   trigger_http          = true
-  depends_on = [time_sleep.wait_30_seconds]
 }
 
 # IAM entry for all users to invoke the function
