@@ -79,20 +79,21 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Input is the first query
-	var input = u.RawQuery
+	// var input = u.RawQuery
+	var domain = u.Query().Get("domain")
+	var IPaddress = u.Query().Get("ipaddress")
 
 	switch {
 	//If input is valid IP, use GeoIP.
-	case net.ParseIP(input) != nil:
-		d.IpAddress = input
+	case net.ParseIP(IPaddress) != nil:
+		d.IpAddress = IPaddress
 		geoIp(d.IpAddress, &m, geoIPData)
 	//If input is valid Domain, use WhoIs.
-	case validator.ValidateDomainByResolvingIt(input) == nil:
-		d.Domain = input
+	case validator.ValidateDomainByResolvingIt(domain) == nil:
+		d.Domain = domain
 		whoIs(d.Domain, &m)
-	//Return error to user.
 	default:
-		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name."))
+		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name does not resolve."))
 		return
 	}
 
