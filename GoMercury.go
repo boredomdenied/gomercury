@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 
@@ -25,7 +27,7 @@ type MercuryRequest struct {
 }
 
 type MercuryResponse struct {
-	Output map[string]string
+	Output map[string]string `json:"output"`
 }
 
 var (
@@ -66,22 +68,24 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 
 	m.Output = make(map[string]string)
 
-	geoIPData := onceBody()
+	// geoIPData := onceBody()
+	geoIPData, err := os.ReadFile("./GeoLite2-City.mmdb")
 
 	//Check if we have sane GET request else bail.
 	u, err := url.Parse(r.RequestURI)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, html.EscapeString(err.Error()))
 		return
 	}
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, html.EscapeString("Not a GET request"))
 		return
 	}
 
-	// Input is the first query
-	// var input = u.RawQuery
 	var domain = u.Query().Get("domain")
 	var IPaddress = u.Query().Get("ipaddress")
 
@@ -96,53 +100,65 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 		whoIs(d.Domain, &m, w)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, html.EscapeString("Not a valid IP Address or Domain Name."))
-		return
+		w.Header().Set("Content-Type", "application/json")
+		m.Output["ErrorOnRequestParameter"] = "Not a Valid IP or Domain."
 	}
 
 	//Output html of data inside MercuryResponse.
-	for k, v := range m.Output {
-		fmt.Fprintln(w, html.EscapeString(k+" : "+v))
-	}
+	json.NewEncoder(w).Encode(m.Output)
 }
 
 func whoIs(domain string, m *MercuryResponse, w http.ResponseWriter) {
+
+	//Request failure.
 	request, err := whois.NewRequest(domain)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
 		m.Output["WhoIsErrorOnRequest"] = err.Error()
 		return
 	}
 
+	//Fetch failure.
 	response, err := whois.DefaultClient.Fetch(request)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		m.Output["WhoIsErrorOnResponse"] = err.Error()
+		w.Header().Set("Content-Type", "application/json")
+		m.Output["WhoIsErrorOnFetch"] = err.Error()
 		return
 	}
 	var noResolution = strings.Contains(string(response.Body), "No match for")
 
+	//Domain resolution failure.
 	if noResolution {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
 		m.Output["WhoIsErrorOnResolution"] = "Domain resolution unsuccessful."
 		return
 	}
 
-	m.Output["WhoisSuccessfulResponse"] = string(response.Body)
+	//Extract subset of successful response.
+	var successResponse = strings.Split(string(response.Body), "\r")
+	m.Output["WhoisSuccessfulResponse"] = successResponse[0]
 }
 
 func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte, w http.ResponseWriter) {
+
+	//Database access failure.
 	db, err := geoip2.FromBytes(geoIPData)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
 		m.Output["GeoIpErrorOnOpen"] = err.Error()
 		return
 	}
 	defer db.Close()
 
+	//Ip address failure.
 	record, err := db.City(net.ParseIP(ipAddress))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
 		m.Output["GeoIpErrorForRecord"] = err.Error()
 		return
 	}
