@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 
 	"cloud.google.com/go/storage"
@@ -65,15 +66,20 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	m.Output = make(map[string]string)
 
 	geoIPData := onceBody()
-	//Capture byte array inputs.
-	var inputBytes, err = io.ReadAll(r.Body)
+
+	//Check if we have sane GET request else bail.
+	u, err := url.Parse(r.RequestURI)
 	if err != nil {
 		fmt.Fprintln(w, html.EscapeString(err.Error()))
 		return
 	}
+	if r.Method != "GET" {
+		fmt.Fprintln(w, html.EscapeString("Not a GET request"))
+		return
+	}
 
-	//Convert byte arrays to strings.
-	var input = string(inputBytes)
+	// Input is the first query
+	var input = u.RawQuery
 
 	switch {
 	//If input is valid IP, use GeoIP.

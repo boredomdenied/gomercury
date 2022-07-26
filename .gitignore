@@ -19,11 +19,8 @@
 *.zip
 
 #Terraform folder and files
-<<<<<<< HEAD
 terraform/
-=======
 *.tfstate
 *.tfstate.*
 *.terraform.
 *.terraform.*
->>>>>>> e0341b1 (Tested Terraform => gcp. GeoIP now successfully pulls from bucket.)

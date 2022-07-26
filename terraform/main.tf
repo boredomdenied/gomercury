@@ -38,6 +38,8 @@ resource "google_cloudfunctions_function" "function" {
   project               = "gomercury-356415"
   region                = "us-central1"
   available_memory_mb   = 256
+  min_instances         = 1
+  max_instances         = 10
   source_archive_bucket = google_storage_bucket.bucket.name
   source_archive_object = google_storage_bucket_object.archive.name
   trigger_http          = true
