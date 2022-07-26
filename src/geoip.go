@@ -10,7 +10,7 @@ import (
 
 func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte, w http.ResponseWriter) {
 
-	//Database access failure.
+	//Database access failure
 	db, err := geoip2.FromBytes(geoIPData)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -20,7 +20,7 @@ func geoIp(ipAddress string, m *MercuryResponse, geoIPData []byte, w http.Respon
 	}
 	defer db.Close()
 
-	//Ip address failure.
+	//Ip address failure
 	record, err := db.City(net.ParseIP(ipAddress))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

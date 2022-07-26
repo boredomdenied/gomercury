@@ -9,7 +9,7 @@ import (
 
 func whoIs(domain string, m *MercuryResponse, w http.ResponseWriter) {
 
-	//Request failure.
+	//Request failure
 	request, err := whois.NewRequest(domain)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -18,7 +18,7 @@ func whoIs(domain string, m *MercuryResponse, w http.ResponseWriter) {
 		return
 	}
 
-	//Fetch failure.
+	//Fetch failure
 	response, err := whois.DefaultClient.Fetch(request)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -28,7 +28,7 @@ func whoIs(domain string, m *MercuryResponse, w http.ResponseWriter) {
 	}
 	var noResolution = strings.Contains(string(response.Body), "No match for")
 
-	//Domain resolution failure.
+	//Domain resolution failure
 	if noResolution {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "application/json")
@@ -36,7 +36,7 @@ func whoIs(domain string, m *MercuryResponse, w http.ResponseWriter) {
 		return
 	}
 
-	//Extract subset of successful response.
+	//Extract subset of successful response
 	var successResponse = strings.Split(string(response.Body), "\r")
 	m.Output["WhoisSuccessfulResponse"] = successResponse[0]
 }
