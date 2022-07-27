@@ -18,5 +18,5 @@ func checkRequest(r *http.Request, m *MercuryResponse, geoIPData []byte, w http.
 		w.Header().Set("Content-Type", "application/json")
 		m.Output["ErrorOnMethodType"] = "Not a Valid GET request."
 	}
-	return
+	return u
 }

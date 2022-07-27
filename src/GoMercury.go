@@ -41,18 +41,18 @@ func GoMercury(w http.ResponseWriter, r *http.Request) {
 	//Sanity check the request
 	u := checkRequest(r, &m, geoIPData, w)
 
-	//Get Query Parameter
 	var domain = u.Query().Get("domain")
 	var IPaddress = u.Query().Get("ipaddress")
+
+	d.IpAddress = IPaddress
+	d.Domain = domain
 
 	switch {
 	//If input is valid IP, use GeoIP
 	case net.ParseIP(IPaddress) != nil:
-		d.IpAddress = IPaddress
 		geoIp(d.IpAddress, &m, geoIPData, w)
 	//If input is valid Domain, use WhoIs
 	case validator.ValidateDomainByResolvingIt(domain) == nil:
-		d.Domain = domain
 		whoIs(d.Domain, &m, w)
 	default: //No valid IP or domain
 		w.WriteHeader(http.StatusBadRequest)
